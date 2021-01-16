@@ -11,7 +11,11 @@ public class PlayerMove : MonoBehaviour
 
     protected Vector2 currVelocity;
 
+    //Collision
     protected Rigidbody2D playerRigBody;
+    protected ContactFilter2D contactFilter;
+    protected RaycastHit2D[] hitBuffer = new RaycastHit2D[16];
+
     //Get rigidbody component
     void OnEnable()
     {
@@ -21,6 +25,10 @@ public class PlayerMove : MonoBehaviour
     // Start is called before the first frame update
     void Start()
     {
+        contactFilter.useTriggers = false;
+        //get filter of what layers can collide (get what layers to check collision against)
+        contactFilter.SetLayerMask(Physics2D.GetLayerCollisionMask(gameObject.layer));
+        contactFilter.useLayerMask = true;
 
     }
 
@@ -28,8 +36,7 @@ public class PlayerMove : MonoBehaviour
     void Update()
     {
         updateVelocity();
-        Vector2 newPosition = currVelocity * Time.deltaTime;
-        playerRigBody.position = playerRigBody.position + newPosition;
+        Move();
 
     }
 
@@ -196,6 +203,50 @@ public class PlayerMove : MonoBehaviour
             }
 
         }
+    }
+
+    void Move()
+    {
+        //Vector for the frame
+        Vector2 newPosition = currVelocity * Time.deltaTime;
+
+        //Distance for the frame
+        float distance = newPosition.magnitude;
+
+        //Fraction of distance until the collision
+        float distFraction = 0;
+        float distCollision = 0;
+
+        if (distance > 0)
+        {
+            int collisionCount = playerRigBody.Cast(newPosition, contactFilter, hitBuffer, distance + 0.01f);
+            if (collisionCount == 16)
+            {
+                Debug.Log("ERROR: Exceding maximum trackable collisions.  More than 16 collisions.  In PlayerMove.cs Script.");
+            }
+            
+            //Track fraction of movement nessasary
+            for (int i=0; i<collisionCount; i++)
+            {
+                if (hitBuffer[i].fraction > distFraction)
+                {
+                    distFraction = hitBuffer[i].fraction;
+                    distCollision = hitBuffer[i].distance;
+                }
+            }
+
+            if (distFraction > 0)
+            {
+                Debug.Log(distFraction);
+                newPosition.x *= distFraction;
+                newPosition.y *= distFraction;
+                newPosition.x -= 0.01f;
+                newPosition.y -= 0.01f;
+            }
+            
+        }        
+
+        playerRigBody.position = playerRigBody.position + newPosition;
     }
 }
 
